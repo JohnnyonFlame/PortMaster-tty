@@ -11,6 +11,31 @@ if [ -f "/etc/profile" ]; then
   source /etc/profile
 fi
 
+if [ -f "/etc/os-release" ]; then
+  source /etc/os-release
+fi
+
+if [[ -e "/storage/.config/.OS_ARCH" ]] || [ "${OS_NAME}" == "JELOS" ] || [ "${OS_NAME}" == "UnofficialOS" ]; then
+  toolsfolderloc="/storage/roms/ports"
+else
+  isitthera=$($GREP "title=" "/usr/share/plymouth/themes/text.plymouth")
+  if [[ $isitthera == *"TheRA"* ]]; then
+    if [ -d "/opt/tools/PortMaster/" ]; then
+      toolsfolderloc="/opt/tools"
+    else
+      toolsfolderloc="/roms/ports"
+    fi
+  else
+    if [ -d "/opt/system/Tools/PortMaster/" ]; then
+      toolsfolderloc="/opt/system/Tools"
+    else
+      toolsfolderloc="/roms/ports"
+    fi
+  fi
+fi
+
+isitext=$(df -PTh $toolsfolderloc | awk '{print $2}' | grep ext)
+
 ESUDO="sudo"
 GREP="grep"
 WGET="wget"
@@ -42,10 +67,6 @@ else
       $ESUDO timedatectl set-ntp 1
 	fi
   fi
-fi
-
-if [ -f "/etc/os-release" ]; then
-  source /etc/os-release
 fi
 
 $ESUDO chmod 666 /dev/tty0
@@ -110,27 +131,6 @@ fi
 if [[ "${UI_SERVICE}" =~ weston.service ]]; then
   opengl='(?<=Title_F=\").*?(?=\")'
 fi
-
-if [[ -e "/storage/.config/.OS_ARCH" ]] || [ "${OS_NAME}" == "JELOS" ] || [ "${OS_NAME}" == "UnofficialOS" ]; then
-  toolsfolderloc="/storage/roms/ports"
-else
-  isitthera=$($GREP "title=" "/usr/share/plymouth/themes/text.plymouth")
-  if [[ $isitthera == *"TheRA"* ]]; then
-    if [ -d "/opt/tools/PortMaster/" ]; then
-      toolsfolderloc="/opt/tools"
-    else
-      toolsfolderloc="/roms/ports"
-    fi
-  else
-    if [ -d "/opt/system/Tools/PortMaster/" ]; then
-      toolsfolderloc="/opt/system/Tools"
-    else
-      toolsfolderloc="/roms/ports"
-    fi
-  fi
-fi
-
-isitext=$(df -PTh $toolsfolderloc | awk '{print $2}' | grep ext)
 
 cd $toolsfolderloc/PortMaster
 
