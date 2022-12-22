@@ -36,6 +36,13 @@ fi
 
 isitext=$(df -PTh $toolsfolderloc | awk '{print $2}' | grep ext)
 
+# Are we attached to a tty? E.g. due to ssh, kmscon, wlterm, xterm, etc
+CUR_TTY=$("${toolsfolderloc}/PortMaster/tty")
+if [ $? != 0 ] || [ "${CUR_TTY}" = "not a tty" ]; then
+  # tty failure or no tty attached, let's hope ${CUR_TTY} is an attached terminal...
+  CUR_TTY="/dev/tty0"
+fi
+
 ESUDO="sudo"
 GREP="grep"
 WGET="wget"
@@ -69,12 +76,12 @@ else
   fi
 fi
 
-$ESUDO chmod 666 /dev/tty0
+$ESUDO chmod 666 ${CUR_TTY}
 export TERM=linux
 export XDG_RUNTIME_DIR=/run/user/$UID/
-printf "\033c" > /dev/tty0
+printf "\033c" > ${CUR_TTY}
 # hide cursor
-printf "\e[?25h" > /dev/tty0
+printf "\e[?25h" > ${CUR_TTY}
 dialog --clear
 
 hotkey="Select"
@@ -142,7 +149,7 @@ GW=`ip route | awk '/default/ { print $3 }'`
 if [ -z "$GW" ]; then
   dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear \
   --msgbox "\n\nYour network connection doesn't seem to be working. \
-  \nDid you make sure to configure your wifi connection?" $height $width 2>&1 > /dev/tty0
+  \nDid you make sure to configure your wifi connection?" $height $width 2>&1 > ${CUR_TTY}
   $ESUDO kill -9 $(pidof oga_controls)
   if [ ! -z "$ESUDO" ]; then
     $ESUDO systemctl restart oga_events &
@@ -171,12 +178,12 @@ UpdateCheck() {
   if [[ "$gitversion" != "$curversion" ]]; then
     
 	dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear \
---yesno "\nThere's an update for PortMaster ($gitversion).  Would you like to download it now?" $height $width 2>&1 > /dev/tty0
+--yesno "\nThere's an update for PortMaster ($gitversion).  Would you like to download it now?" $height $width 2>&1 > ${CUR_TTY}
 
     case $? in
 	   0) 
 		$WGET -t 3 -T 60 -q --show-progress "${website}PortMaster.zip" -O /dev/shm/portmaster/PortMaster.zip 2>&1 | stdbuf -oL sed -E 's/\.\.+/---/g'| dialog \
-			  --progressbox "Downloading and installing PortMaster update..." $height $width > /dev/tty0
+			  --progressbox "Downloading and installing PortMaster update..." $height $width > ${CUR_TTY}
 		if [ ${PIPESTATUS[0]} -eq 0 ]; then
 		  if [[ ! -z $(cat $toolsfolderloc/PortMaster/gamecontrollerdb.txt | $GREP 'Xbox 360 Layout') ]]; then
 		   local x360="Yes"
@@ -195,7 +202,7 @@ UpdateCheck() {
 			$ESUDO chmod -R 777 $toolsfolderloc/PortMaster
 			$ESUDO chmod 777 $toolsfolderloc/PortMaster.sh
 		  fi
-		  dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nPortMaster updated successfully." $height $width 2>&1 > /dev/tty0
+		  dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nPortMaster updated successfully." $height $width 2>&1 > ${CUR_TTY}
 		  $ESUDO kill -9 $(pidof oga_controls)
 		  $ESUDO rm -f /dev/shm/portmaster/PortMaster.zip
 		  if [ ! -z "$ESUDO" ]; then
@@ -203,7 +210,7 @@ UpdateCheck() {
 		  fi
 		  exit 0
 		else
-		  dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nPortMaster failed to update." $height $width 2>&1 > /dev/tty0
+		  dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nPortMaster failed to update." $height $width 2>&1 > ${CUR_TTY}
 		  $ESUDO rm -f /dev/shm/portmaster/PortMaster.zip
 		fi
         ;;
@@ -249,10 +256,10 @@ local unzipstatus
     dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear \
     --yesno "\n$msgtxt \n\nPorted By: $porter\n\nThis port also requires the download and install 
 	of the mono library which is over 200MBs in size.  This download may take a while.
-	\n\nWould you like to continue to install this port?" $height $width 2>&1 > /dev/tty0
+	\n\nWould you like to continue to install this port?" $height $width 2>&1 > ${CUR_TTY}
   else
     dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear \
-    --yesno "\n$msgtxt \n\nPorted By: $porter\n\nWould you like to continue to install this port?" $height $width 2>&1 > /dev/tty0
+    --yesno "\n$msgtxt \n\nPorted By: $porter\n\nWould you like to continue to install this port?" $height $width 2>&1 > ${CUR_TTY}
   fi
   
   case $? in
@@ -260,18 +267,18 @@ local unzipstatus
 	    if [ ${needmono,,} == "y" ] && [ $ismonothere == "n" ]; then
 	      $WGET -t 3 -T 60 -q --show-progress "$website$mono_version" -O \
 	      $toolsfolderloc/PortMaster/libs/$mono_version 2>&1 | stdbuf -oL sed -E 's/\.\.+/---/g'| dialog --progressbox \
-		  "Downloading ${mono_version} package..." $height $width > /dev/tty0
+		  "Downloading ${mono_version} package..." $height $width > ${CUR_TTY}
         fi
         if [ ${needmono,,} == "y" ] && [ $ismonothere == "n" ] && [ $? -ne 0 ]; then
           dialog --clear --backtitle "PortMaster v$curversion" --title "$mono_version" --clear --msgbox "\n\n$mono_version did NOT download. \
           \n\nIt did not download correctly.  Please verify that you have at least 500MBs of space left in your roms parition
-          and your internet connection is stable and try again." $height $width 2>&1 > /dev/tty0
+          and your internet connection is stable and try again." $height $width 2>&1 > ${CUR_TTY}
           $ESUDO rm -f $toolsfolderloc/PortMaster/libs/$mono_version
         else
 	      $WGET -t 3 -T 60 -q --show-progress "$website$installloc" -O \
 	      /dev/shm/portmaster/$installloc 2>&1 | stdbuf -oL sed -E 's/\.\.+/---/g'| dialog --progressbox \
-	      "Downloading ${1} package..." $height $width > /dev/tty0
-	      unzip -o /dev/shm/portmaster/$installloc -d /$whichsd/ports/ > /dev/tty0
+	      "Downloading ${1} package..." $height $width > ${CUR_TTY}
+	      unzip -o /dev/shm/portmaster/$installloc -d /$whichsd/ports/ > ${CUR_TTY}
 	      unzipstatus=$?
 		  if [ $unzipstatus -eq 0 ] || [ $unzipstatus -eq 1 ]; then
 		    if [ ! -z $isitext ]; then
@@ -288,16 +295,16 @@ local unzipstatus
 		    fi
 		    cd $toolsfolderloc
 		    dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\n$1 installed successfully. \
-		    \n\nMake sure to restart EmulationStation in order to see it in the ports menu." $height $width 2>&1 > /dev/tty0
+		    \n\nMake sure to restart EmulationStation in order to see it in the ports menu." $height $width 2>&1 > ${CUR_TTY}
 		  elif [ $unzipstatus -eq 2 ] || [ $unzipstatus -eq 3 ] || [ $unzipstatus -eq 9 ] || [ $unzipstatus -eq 51 ]; then
 		    dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\n$1 did NOT install. \
-		    \n\nIt did not download correctly.  Please check your internet connection and try again." $height $width 2>&1 > /dev/tty0
+		    \n\nIt did not download correctly.  Please check your internet connection and try again." $height $width 2>&1 > ${CUR_TTY}
 		  elif [ $unzipstatus -eq 50 ]; then
 		    dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\n$1 did NOT install. \
-		    \n\nYour roms partition seems to be full." $height $width 2>&1 > /dev/tty0
+		    \n\nYour roms partition seems to be full." $height $width 2>&1 > ${CUR_TTY}
 		  else
 		    dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\n$1 did NOT install. \
-		    \n\nUnzip error code:$unzipstatus " $height $width 2>&1 > /dev/tty0
+		    \n\nUnzip error code:$unzipstatus " $height $width 2>&1 > ${CUR_TTY}
 		  fi
 
 	      $ESUDO rm -f /dev/shm/portmaster/$installloc
@@ -315,7 +322,7 @@ userExit() {
     $ESUDO systemctl restart oga_events &
   fi
   dialog --clear
-  printf "\033c" > /dev/tty0
+  printf "\033c" > ${CUR_TTY}
   exit 0
 }
 SetColorScheme() {
@@ -367,7 +374,7 @@ ColorSchemeMenu() {
     fi
   done
 
-  choice=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty0)
+  choice=$("${cmd[@]}" "${options[@]}" 2>&1 >${CUR_TTY})
   retval=$?
 
   case $retval in
@@ -405,15 +412,15 @@ Settings() {
 	--cancel-label "$hotkey + Start to Exit" \
     --menu "What do you want to do?" $height $width 15)
 	
-	settingschoices=$("${settingsselection[@]}" "${settingsoptions[@]}" 2>&1 > /dev/tty0) || TopLevel
+	settingschoices=$("${settingsselection[@]}" "${settingsoptions[@]}" 2>&1 > ${CUR_TTY}) || TopLevel
 
     for choice in $settingschoices; do
       case $choice in
         1) cp -f $toolsfolderloc/PortMaster/.Backup/donottouch.txt $toolsfolderloc/PortMaster/gamecontrollerdb.txt
 		   if [ $? == 0 ]; then
-		     dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nThe default gamecontrollerdb.txt has been successfully restored." $height $width 2>&1 > /dev/tty0
+		     dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nThe default gamecontrollerdb.txt has been successfully restored." $height $width 2>&1 > ${CUR_TTY}
 		   else
-		     dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nThe default gamecontrollerdb.txt has failed to be restored.  Is the backup portmaster subfolder or it's contents missing?" $height $width 2>&1 > /dev/tty0
+		     dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nThe default gamecontrollerdb.txt has failed to be restored.  Is the backup portmaster subfolder or it's contents missing?" $height $width 2>&1 > ${CUR_TTY}
 		   fi
 		   Settings
         ;;
@@ -447,7 +454,7 @@ MainMenu() {
 	--cancel-label "$hotkey + Start to Exit" \
     --menu "Available ports for install" $height $width 15)
 
-    choices=$("${selection[@]}" "${options[@]}" 2>&1 > /dev/tty0) || TopLevel
+    choices=$("${selection[@]}" "${options[@]}" 2>&1 > ${CUR_TTY}) || TopLevel
 
     for choice in $choices; do
       case $choice in
@@ -471,7 +478,7 @@ MainMenuRTR() {
 	--cancel-label "$hotkey + Start to Exit" \
     --menu "Available Ready to Run ports for install" $height $width 15)
 
-    choices=$("${selection[@]}" "${options[@]}" 2>&1 > /dev/tty0) || TopLevel
+    choices=$("${selection[@]}" "${options[@]}" 2>&1 > ${CUR_TTY}) || TopLevel
 
     for choice in $choices; do
       case $choice in
@@ -493,7 +500,7 @@ TopLevel() {
 	--cancel-label "$hotkey + Start to Exit" \
     --menu "Please make your selection" $height $width 15)
 	
-	topchoices=$("${topselection[@]}" "${topoptions[@]}" 2>&1 > /dev/tty0) || userExit
+	topchoices=$("${topselection[@]}" "${topoptions[@]}" 2>&1 > ${CUR_TTY}) || userExit
 
     for choice in $topchoices; do
       case $choice in
