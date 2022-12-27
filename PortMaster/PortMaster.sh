@@ -141,6 +141,10 @@ fi
 
 cd $toolsfolderloc/PortMaster
 
+cp "$toolsfolderloc/PortMaster/gamecontrollerdb.txt" /tmp/gamecontrollerdb.txt
+$toolsfolderloc/PortMaster/mapper.txt "/tmp/gamecontrollerdb.txt" > /dev/null 2>&1
+export SDL_GAMECONTROLLERCONFIG_FILE="/tmp/gamecontrollerdb.txt"
+
 $ESUDO $toolsfolderloc/PortMaster/gptokeyb PortMaster.sh -c "$toolsfolderloc/PortMaster/oga_controls_settings.txt" &
 
 curversion="$(curl file://$toolsfolderloc/PortMaster/version)"

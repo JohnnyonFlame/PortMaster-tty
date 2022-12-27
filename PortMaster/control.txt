@@ -66,10 +66,6 @@ elif [[ -e "/storage/.config/.OS_ARCH" ]] || [ -z $ESUDO ]; then
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib32
 fi
 
-SDLDBFILE="${SDL_GAMECONTROLLERCONFIG_FILE}"
-[ -z "${SDLDBFILE}" ] && SDLDBFILE="${controlfolder}/gamecontrollerdb.txt"
-SDLDBUSERFILE="${HOME}/.config/SDL-GameControllerDB/gamecontrollerdb.txt"
-
 get_controls() {
 
 ANALOGSTICKS="2"
@@ -130,9 +126,22 @@ else
       param_device="${2}"
 fi
 
-    CONTROLS=`grep "${SDLDBUSERFILE}" -e "${DEVICE}"`
-    [ -z "${CONTROLS}" ] && CONTROLS=`grep "${SDLDBFILE}" -e "${DEVICE}"`
-    sdl_controllerconfig="${CONTROLS}"
+    # Set file
+    export SDL_GAMECONTROLLERCONFIG_FILE="/tmp/gamecontrollerdb.txt"
+
+    # Spit the controller of the device our heuristics found (if it did).
+    if [[ ! -z ${DEVICE} ]]; then
+      grep "${SDLDBUSERFILE}" -e "${DEVICE}" > /tmp/gamecontrollerdb.txt
+    else
+      echo "" > /tmp/gamecontrollerdb.txt
+    fi
+
+    # Now find any controller mapped on emulationstation...
+    $controlfolder/mapper.txt /tmp/gamecontrollerdb.txt > /dev/null 2>&1
+    SDLDBUSERFILE="${HOME}/.config/SDL-GameControllerDB/gamecontrollerdb.txt"
+
+    # Some ports want SDL_GAMECONTROLLERCONFIG, so let's fill it in
+    sdl_controllerconfig="$(< "${SDL_GAMECONTROLLERCONFIG_FILE}")"
 }
 
 GPTOKEYB="$ESUDO $controlfolder/gptokeyb $ESUDOKILL"
