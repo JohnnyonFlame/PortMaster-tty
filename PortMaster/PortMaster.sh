@@ -141,7 +141,7 @@ fi
 
 cd $toolsfolderloc/PortMaster
 
-$ESUDO $toolsfolderloc/PortMaster/oga_controls PortMaster.sh $param_device > /dev/null 2>&1 &
+$ESUDO $toolsfolderloc/PortMaster/gptokeyb PortMaster.sh -c "$toolsfolderloc/PortMaster/oga_controls_settings.txt" &
 
 curversion="$(curl file://$toolsfolderloc/PortMaster/version)"
 
@@ -150,7 +150,7 @@ if [ -z "$GW" ]; then
   dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear \
   --msgbox "\n\nYour network connection doesn't seem to be working. \
   \nDid you make sure to configure your wifi connection?" $height $width 2>&1 > ${CUR_TTY}
-  $ESUDO kill -9 $(pidof oga_controls)
+  $ESUDO kill -9 $(pidof gptokeyb)
   if [ ! -z "$ESUDO" ]; then
     $ESUDO systemctl restart oga_events &
   fi
@@ -203,7 +203,7 @@ UpdateCheck() {
 			$ESUDO chmod 777 $toolsfolderloc/PortMaster.sh
 		  fi
 		  dialog --clear --backtitle "PortMaster v$curversion" --title "$1" --clear --msgbox "\n\nPortMaster updated successfully." $height $width 2>&1 > ${CUR_TTY}
-		  $ESUDO kill -9 $(pidof oga_controls)
+		  $ESUDO kill -9 $(pidof gptokeyb)
 		  $ESUDO rm -f /dev/shm/portmaster/PortMaster.zip
 		  if [ ! -z "$ESUDO" ]; then
 		    $ESUDO systemctl restart oga_events &
@@ -317,7 +317,7 @@ local unzipstatus
 
 userExit() {
   rm -f /dev/shm/portmaster/ports.md
-  $ESUDO kill -9 $(pidof oga_controls)
+  $ESUDO kill -9 $(pidof gptokeyb)
   if [ ! -z "$ESUDO" ]; then
     $ESUDO systemctl restart oga_events &
   fi
