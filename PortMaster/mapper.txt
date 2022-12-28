@@ -1,43 +1,93 @@
 #!/bin/bash
 
-# todo:: find
-ES_CONFIG="${HOME}/.config/emulationstation/es_input.cfg"
-
-if [[ ! -f $1 ]]; then
+# -- Config & Setup --
+# Destination file
+if [[ -z "$1" ]]; then
   echo "Usage: mapper.txt [gamecontrollerdb.txt]"
   exit -1
 fi
 
-CONTROLLER_DB=$1
+CONTROLLER_DB="$1"
 if [[ ! -f "${CONTROLLER_DB}" ]]; then
   echo "File ${CONTROLLER_DB} does not exist."
   exit -1
 fi
 
-# query controllers mapped in emulationstation, ignore devices without a GUID
-ES_QUERY="$(xmlstarlet sel -t -m "inputList/inputConfig[@deviceGUID!='']" -n -v "@deviceName" -o ";" -v "@deviceGUID" $ES_CONFIG)"
-printf "\n# Custom Entries\n" >> "${CONTROLLER_DB}"
+# Where the emulationstation configuration file is
+ES_CONFIG="${HOME}/.config/emulationstation/es_input.cfg"
 
+# -- Helper function --
+# Map the actual button/hat/axis
 function map {
-  TR_NAME=$1
+  INPUT_NAME=$1
   TYPE=$2
   ID=$3
   VALUE=$4
 
-  map_x_result="${TR_NAME}:"
-  if [[ ${TYPE} == "axis" ]]; then
-    DIR=""
-    (( $VALUE < 0 )) && DIR="-"
-    map_x_result="${map_x_result}${DIR}a${ID}"
-  elif [[ ${TYPE} == "button" ]]; then
-    map_x_result="${map_x_result}b${ID}"
-  elif [[ ${TYPE} == "hat" ]]; then
-    map_x_result="${map_x_result}h${ID}.${VALUE}"
-  else # key
-    map_x_result=""
-    echo "Controllers shouldn't map keys."
-  fi
+  map_x_result=""
+  case "${INPUT_NAME}" in
+    "b")                TR_NAME="a";;
+    "a")                TR_NAME="b";;
+    "y")                TR_NAME="x";;
+    "x")                TR_NAME="y";;
+    "hotkeyenable")     TR_NAME="guide";;
+    "up")               TR_NAME="dpup";;
+    "down")             TR_NAME="dpdown";;
+    "left")             TR_NAME="dpleft";;
+    "right")            TR_NAME="dpright";;
+    "leftshoulder")     TR_NAME="leftshoulder";;
+    "leftthumb")        TR_NAME="leftstick";;
+    "lefttrigger")      TR_NAME="lefttrigger";;
+    "rightshoulder")    TR_NAME="rightshoulder";;
+    "rightthumb")       TR_NAME="rightstick";;
+    "righttrigger")     TR_NAME="righttrigger";;
+    "select")           TR_NAME="back";;
+    "start")            TR_NAME="start";;
+    "leftanalogdown")   TR_NAME="-lefty";;
+    "leftanalogleft")   TR_NAME="-leftx";;
+    "leftanalogright")  TR_NAME="+leftx";;
+    "leftanalogup")     TR_NAME="+lefty";;
+    "rightanalogdown")  TR_NAME="-righty";;
+    "rightanalogleft")  TR_NAME="-rightx";;
+    "rightanalogright") TR_NAME="+rightx";;
+    "rightanalogup")    TR_NAME="+righty";;
+    *)
+      echo "Invalid mapping ${INPUT_NAME}."
+      return
+      ;;
+  esac
+
+  case "${TYPE}" in
+  "axis")
+    if (( $VALUE < 0 )); then
+      map_x_result="${TR_NAME}:${map_x_result}-a${ID},"
+    else
+      map_x_result="${TR_NAME}:${map_x_result}a${ID},"
+    fi
+    ;;
+  "button")
+    map_x_result="${TR_NAME}:${map_x_result}b${ID},"
+    ;;
+  "hat")
+    map_x_result="${TR_NAME}:${map_x_result}h${ID}.${VALUE},"
+    ;;
+  *)
+    echo "Invalid entry ${TYPE}"
+    ;;
+  esac
 }
+
+function get_map_suffix {
+  map_suffix="platform:Linux,"
+}
+
+function get_map_prefix {
+  map_prefix=${GUID},${NAME},
+}
+
+# query controllers mapped in emulationstation, ignore devices without a GUID
+ES_QUERY="$(xmlstarlet sel -T -t -m "inputList/inputConfig[@deviceGUID!='']" -n -v "@deviceName" -o ";" -v "@deviceGUID" $ES_CONFIG)"
+printf "\n# Custom Entries\n" >> "${CONTROLLER_DB}"
 
 echo "## ES Dev Mapper ##"
 while IFS=";" read -r NAME GUID; do
@@ -50,42 +100,29 @@ while IFS=";" read -r NAME GUID; do
   # Check if GUID exists in gamecontrollerdb.txt
   if [ -z "$(fgrep -- ${GUID} "${CONTROLLER_DB}")" ]; then
     # Query this specific GUID on the mappings
-    MAPPING_CFG=$(xmlstarlet sel -t -m "//inputConfig[@deviceGUID = '${GUID}']/input" -n -v "@name" -o ";" -v "@type" -o ";" -v "@id" -o ";" -v "@value" $ES_CONFIG)
+    MAPPING_CFG=$(xmlstarlet sel -T -t -m "//inputConfig[@deviceGUID = '${GUID}']/input" -n -v "@name" -o ";" -v "@type" -o ";" -v "@id" -o ";" -v "@value" $ES_CONFIG)
 
-    # Translate mapping to gamecontrollerdb format
-    MAPPING="${GUID},${NAME},"
+    MAPPING=""
     while IFS=";" read -r -e INPUT_NAME TYPE ID VALUE; do
-      [[ ${INPUT_NAME} == "b" ]]                && map "a"             "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "a" ]]                && map "b"             "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "y" ]]                && map "x"             "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "x" ]]                && map "y"             "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "hotkeyenable" ]]     && map "guide"         "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "up" ]]               && map "dpup"          "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "down" ]]             && map "dpdown"        "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "left" ]]             && map "dpleft"        "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "right" ]]            && map "dpright"       "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "leftshoulder" ]]     && map "leftshoulder"  "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "leftthumb" ]]        && map "leftstick"     "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "lefttrigger" ]]      && map "lefttrigger"   "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "rightshoulder" ]]    && map "rightshoulder" "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "rightthumb" ]]       && map "rightstick"    "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "righttrigger" ]]     && map "righttrigger"  "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "select" ]]           && map "back"          "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "start" ]]            && map "start"         "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "leftanalogdown" ]]   && map "-lefty"        "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "leftanalogleft" ]]   && map "-leftx"        "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "leftanalogright" ]]  && map "+leftx"        "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "leftanalogup" ]]     && map "+lefty"        "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "rightanalogdown" ]]  && map "-righty"       "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "rightanalogleft" ]]  && map "-rightx"       "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "rightanalogright" ]] && map "+rightx"       "${TYPE}" "${ID}" "${VALUE}"
-      [[ ${INPUT_NAME} == "rightanalogup" ]]    && map "+righty"       "${TYPE}" "${ID}" "${VALUE}"
-      MAPPING="${MAPPING}${map_x_result},"
+      # Map the controller
+      map "${INPUT_NAME}" "${TYPE}" "${ID}" "${VALUE}"
+      
+      # Only concatenate valid mappings
+      if [[ ! -z ${map_x_result} ]]; then
+        MAPPING="${MAPPING}${map_x_result}"
+      fi
     done <<< ${MAPPING_CFG:1}
-
-    echo "${MAPPING}platform:Linux," >> "${CONTROLLER_DB}"
-    echo "${MAPPING}"
-    echo ""
+    
+    get_map_prefix
+    get_map_suffix
+    if [[ ! -z "${MAPPING}" ]]; then
+      echo "${map_prefix}${MAPPING}${map_suffix}" >> "${CONTROLLER_DB}"
+      echo "${map_prefix}${MAPPING}${map_suffix}"
+      echo ""
+    else
+      echo "Failed to map anything."
+      echo ""
+    fi
   else
     echo "Already mapped..."
   fi
