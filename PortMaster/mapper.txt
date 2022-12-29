@@ -82,7 +82,7 @@ function get_map_suffix {
 }
 
 function get_map_prefix {
-  map_prefix=${GUID},${NAME},
+  map_prefix="${GUID},${NAME},"
 }
 
 # query controllers mapped in emulationstation, ignore devices without a GUID
