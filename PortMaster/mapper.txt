@@ -86,7 +86,7 @@ function get_map_prefix {
 }
 
 # query controllers mapped in emulationstation, ignore devices without a GUID
-ES_QUERY="$(xmlstarlet sel -T -t -m "inputList/inputConfig[@deviceGUID!='']" -n -v "@deviceName" -o ";" -v "@deviceGUID" $ES_CONFIG)"
+ES_QUERY="$(xmlstarlet sel -T -t -m "inputList/inputConfig[@deviceGUID!='']" -n -v "concat(@deviceName,';',@deviceGUID)" $ES_CONFIG)"
 printf "\n# Custom Entries\n" >> "${CONTROLLER_DB}"
 
 echo "## ES Dev Mapper ##"
@@ -100,7 +100,7 @@ while IFS=";" read -r NAME GUID; do
   # Check if GUID exists in gamecontrollerdb.txt
   if [ -z "$(fgrep -- ${GUID} "${CONTROLLER_DB}")" ]; then
     # Query this specific GUID on the mappings
-    MAPPING_CFG=$(xmlstarlet sel -T -t -m "//inputConfig[@deviceGUID = '${GUID}']/input" -n -v "@name" -o ";" -v "@type" -o ";" -v "@id" -o ";" -v "@value" $ES_CONFIG)
+    MAPPING_CFG=$(xmlstarlet sel -T -t -m "//inputConfig[@deviceGUID = '${GUID}']/input" -n -v "concat(@name,';',@type,';',@id,';',@value)" $ES_CONFIG)
 
     MAPPING=""
     while IFS=";" read -r -e INPUT_NAME TYPE ID VALUE; do
